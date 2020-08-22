@@ -1,5 +1,7 @@
 # Homework 1: Full Name Predictor
 ## Due date: TBD
+This assignment counts for 5% of the course grade. Assignments turned in after the deadline are subject to a grade 
+penalty (the precise penalty will be announced together with the deadline).
 ### Overview
 Person names in the English language typically consist of one or more forenames followed by one or more surnames 
 (optionally preceded by zero or more titles and followed by zero or more suffixes). This situation can create ambiguity, 
