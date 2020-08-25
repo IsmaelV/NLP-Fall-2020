@@ -6,20 +6,30 @@ Given two or more names with first and surnames, identify the full name of the f
 import argparse
 
 
-def read_data():
+def read_train_key():
 	"""
-	Reads the train and test data
-	:return: first names, second names, and key of target full name for first name
+	Reads the train data and grabs the ground truth
+	:return: List of target full name for former name
 	"""
-	first_names = []
-	second_names = []
 	key_names = []
 	for line in open("./data/dev-key.csv"):
 		csv_row = line.strip().split(',')
-		first_names.append(csv_row[0].split(" AND ")[0])
-		second_names.append(csv_row[0].split(" AND ")[1])
 		key_names.append(csv_row[1])
-	return first_names, second_names, key_names
+	return key_names
+
+
+def read_test(path_to_test):
+	"""
+	Reads the test data
+	:return: List of former names, List of latter names
+	"""
+	first_names = []
+	second_names = []
+	for line in open(path_to_test):
+		row = line.strip().split(" AND ")
+		first_names.append(row[0])
+		second_names.append(row[1])
+	return first_names, second_names
 
 
 def check_arguments():
@@ -145,36 +155,84 @@ def create_new_name(f_tokens, l_tokens, f_surnames, l_surnames, f_female, f_male
 	return new_name
 
 
-if __name__ == "__main__":
-	arguments = check_arguments()
+def evaluate_predictions():
+	"""
+	Read the predictions from predictions.txt made from create_predictions()
+	:return: Precision of the predictions
+	"""
+	true_answers = read_train_key()
+	predictions = open("predictions.txt", "r")
+	ind = 0
+	correct = 0
+	for p in predictions:
+		prediction = p.strip()
+		if prediction == true_answers[ind]:
+			correct += 1
+		ind += 1
+	predictions.close()
+	print("Prediction precision:", correct/len(true_answers))
+	return correct/len(true_answers)
 
-	former, latter, keys = read_data()
+
+def create_predictions(path_to_test, file_to_write):
+	"""
+	Create predictions and write them onto file for results
+	:param path_to_test: String of path to where test data is found
+	:param file_to_write: File that is being written to
+	:return:
+	"""
+	former, latter = read_test(path_to_test)
 	surname_freq = surnames()
 	female_freq, male_freq = female_male_names()
 
-	correct = 0
-	result = open("predictions.txt", "w")
-	for i in range(len(keys)):
-		former_tokens = former[i].split()
-		latter_tokens = latter[i].split()
-		former_surname_mask = [-1]
-		former_female_mask = [1]
-		former_male_mask = [1]
-		for fs in former_tokens[1:]:
+	for i in range(len(former)):
+		# --------------------------------
+		# Create former and latter tokens
+		# --------------------------------
+		former_tokens = former[i].split()  	# Create tokens for former name
+		latter_tokens = latter[i].split()  	# Create tokens for latter name
+
+		# --------------------------------
+		# Create and populate former masks
+		# --------------------------------
+		former_surname_mask = [-1]  		# Create surname mask for former name
+		former_female_mask = [1]  			# Create female mask for former name
+		former_male_mask = [1]  			# Create male mask for former name
+		for fs in former_tokens[1:]:  		# Populate former masks
 			former_surname_mask.append(surname_freq.get(fs, -1))
 			former_female_mask.append(female_freq.get(fs, -1))
 			former_male_mask.append(male_freq.get(fs, -1))
-		latter_surname_mask = [-1]
-		latter_female_mask = [1]
-		latter_male_mask = [1]
-		for ls in latter_tokens[1:]:
+
+		# --------------------------------
+		# Create and populate latter masks
+		# --------------------------------
+		latter_surname_mask = [-1]  		# Create surname mask for latter name
+		latter_female_mask = [1]  			# Create female mask for latter name
+		latter_male_mask = [1]  			# Create male mask for latter name
+		for ls in latter_tokens[1:]:  		# Populate latter masks
 			latter_surname_mask.append(surname_freq.get(ls, -1))
 			latter_female_mask.append(female_freq.get(ls, -1))
 			latter_male_mask.append(male_freq.get(ls, -1))
-		my_prediction = create_new_name(former_tokens, latter_tokens, former_surname_mask, latter_surname_mask, former_female_mask, former_male_mask, latter_female_mask, latter_male_mask)
-		result.write(my_prediction + "\n")
-		if my_prediction == keys[i]:
-			correct += 1
 
-	result.close()
-	print("Percent correct:", correct/len(keys))
+		# --------------------------------
+		# Create the prediction name
+		# --------------------------------
+		my_prediction = create_new_name(former_tokens, latter_tokens, former_surname_mask, latter_surname_mask,
+										former_female_mask, former_male_mask, latter_female_mask, latter_male_mask)
+
+		# --------------------------------
+		# Write results into file
+		# --------------------------------
+		file_to_write.write(my_prediction + "\n")
+
+	return
+
+
+if __name__ == "__main__":
+	arguments = check_arguments()
+
+	results = open("predictions.txt", "w")
+	create_predictions(arguments.path_to_test_data, results)
+	results.close()
+
+	evaluate_predictions()
