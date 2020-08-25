@@ -7,6 +7,10 @@ import argparse
 
 
 def read_data():
+	"""
+	Reads the train and test data
+	:return: first names, second names, and key of target full name for first name
+	"""
 	first_names = []
 	second_names = []
 	key_names = []
@@ -19,12 +23,20 @@ def read_data():
 
 
 def check_arguments():
+	"""
+	Check to see that all the arguments are correct
+	:return: Arguments that were parsed
+	"""
 	parser = argparse.ArgumentParser()
 	parser.add_argument("path_to_test_data", metavar="data-path", help="Path to the csv file with test data", type=str)
 	return parser.parse_args()
 
 
 def surnames():
+	"""
+	Read surname data from 2010 Census
+	:return: Frequency of each name
+	"""
 	frequency = dict()
 	count = 0
 	with open("./data/Surnames_2010Census.csv") as f:
@@ -39,6 +51,10 @@ def surnames():
 
 
 def female_male_names():
+	"""
+	Reads female and male names from data/readme-license.txt urls given
+	:return: Frequencies of female names, frequencies of male names
+	"""
 	female_frequency = dict()
 	with open("./data/female_names.txt") as f:
 		next(f)
@@ -69,6 +85,14 @@ def rule_2(first_tokens, second_tokens):
 
 
 def add_name(all_surnames, female, male, forename=False):
+	"""
+	Check to see if a name will be added or not
+	:param all_surnames: List of frequencies of surname from Census data [-1, 1)
+	:param female: List of frequencies of female names from data [-1, 1)
+	:param male: List of frequencies of male names from data [-1, 1)
+	:param forename: Boolean that determines whether we are looking to add forenames to prediction
+	:return: List of booleans of name indices of which to add to the prediction
+	"""
 	first_over_surname = []
 	for s in range(len(all_surnames)):
 		if all_surnames[s] > 0 and all_surnames[s] > female[s] and all_surnames[s] > male[s]:
@@ -85,18 +109,34 @@ def add_name(all_surnames, female, male, forename=False):
 
 
 def create_new_name(f_tokens, l_tokens, f_surnames, l_surnames, f_female, f_male, l_female, l_male):
+	"""
+	Creates the name of which we are predicting
+	:param f_tokens: List of names before the " AND ". The former name. Need forenames from here
+	:param l_tokens: List of names after the " AND ". The latter name. Need surnames from here
+	:param f_surnames: List of surname frequency from Census data on former name tokens
+	:param l_surnames: List of surname frequency from Census data on latter name tokens
+	:param f_female: List of female name frequency from data on former name tokens
+	:param f_male: List of male name frequency from data on former name tokens
+	:param l_female: List of female name frequency from data on latter name tokens
+	:param l_male: List of male name frequency from data on latter name tokens
+	:return: String of predicted name
+	"""
+	# Always keep first token. Will always be a forename or a title (Professor, Dr., etc.)
 	new_name = f_tokens[0]
+
+	# Get forenames that we will keep from former
 	add_forename = add_name(f_surnames, f_female, f_male, forename=True)
 	for j in range(1, len(add_forename)):
 		if add_forename[j]:
 			new_name += " " + f_tokens[j]
 
+	# Get surnames that we will keep
 	add_surname = add_name(f_surnames, f_female, f_male)
-	if True in add_surname:
+	if True in add_surname:  # If a surname exists in the former name, then keep it and ignore the latter name
 		for j in range(1, len(add_surname)):
 			if add_surname[j]:
 				new_name += " " + f_tokens[j]
-	else:
+	else:  # If surname does not exist in former name, check the surnames in the latter name
 		add_surname = add_name(l_surnames, l_female, l_male)
 		for j in range(1, len(add_surname)):
 			if add_surname[j]:
