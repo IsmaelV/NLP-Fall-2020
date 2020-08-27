@@ -114,17 +114,17 @@ def single_name_predicted(init_prediction, l_tokens):
 	return init_prediction + " " + l_tokens[-1]
 
 
-def add_name(all_surnames, gendered, forename=False):
+def add_name(surname_freq, gendered_freq, forename=False):
 	"""
 	Check to see if a name will be added or not
-	:param all_surnames: List of frequencies of surname from Census data [-1, 1)
-	:param gendered: List of frequencies of either male or female names from data [-1, 1)
+	:param surname_freq: List of frequencies of surname from Census data [-1, 1)
+	:param gendered_freq: List of frequencies of either male or female names from data [-1, 1)
 	:param forename: Boolean that determines whether we are looking to add forenames to prediction
 	:return: List of booleans of name indices of which to add to the prediction
 	"""
 	first_over_surname = []
-	for s in range(len(all_surnames)):
-		if all_surnames[s] > gendered[s]:
+	for s in range(len(surname_freq)):
+		if surname_freq[s] > gendered_freq[s]:
 			if forename:
 				first_over_surname.append(False)
 			else:
