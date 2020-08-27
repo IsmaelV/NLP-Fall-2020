@@ -87,18 +87,6 @@ def get_female_male_names():
 	return female_frequency, male_frequency
 
 
-def rule_1(first_tokens, second_tokens):
-	if len(first_tokens) == 1 and len(second_tokens) == 2:
-		return True, first_tokens[0] + " " + second_tokens[1]
-	return False, ""
-
-
-def rule_2(first_tokens, second_tokens):
-	if len(first_tokens) == 1 and len(second_tokens) == 3:
-		return True, first_tokens[0] + " " + second_tokens[2]
-	return False, ""
-
-
 def single_name_predicted(init_prediction, l_tokens):
 	"""
 	Given that the prediction was a single name (not possible), we perform operations to add a surname. The initial way
