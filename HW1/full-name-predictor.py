@@ -149,8 +149,7 @@ def add_name(all_surnames, female, male, forename=False):
 				first_over_surname.append(False)
 			else:
 				first_over_surname.append(True)
-			continue
-		if forename:
+		elif forename:
 			first_over_surname.append(True)
 		else:
 			first_over_surname.append(False)
