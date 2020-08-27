@@ -179,11 +179,10 @@ def create_new_name(f_tokens, l_tokens, f_surnames, l_surnames, f_gender, l_gend
 		add_surname = add_name(l_surnames, l_gender)
 
 		# If surname found, make all subsequent surnames be True
-		true_start = 0
 		for i in range(len(add_surname)):
 			if add_surname[i]:
-				true_start = i
-		for j in range(true_start, len(add_surname)):
+				break
+		for j in range(i, len(add_surname)):
 			add_surname[j] = True
 
 		# Add all surnames
