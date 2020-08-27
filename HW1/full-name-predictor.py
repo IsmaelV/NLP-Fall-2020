@@ -187,9 +187,17 @@ def create_new_name(f_tokens, l_tokens, f_surnames, l_surnames, f_female, f_male
 	else:  # If surname does not exist in former name, check the surnames in the latter name
 		added_surname = False
 		add_surname = add_name(l_surnames, l_female, l_male)
-		for j in range(1, len(add_surname)):
-			if add_surname[j]:
-				new_name += " " + l_tokens[j]
+		# If surname found, make all subsequent surnames be True
+		for i in range(len(add_surname)):
+			if add_surname[i]:
+				break
+		for j in range(i, len(add_surname)):
+			add_surname[j] = True
+
+		# Add all surnames
+		for k in range(1, len(add_surname)):
+			if add_surname[k]:
+				new_name += " " + l_tokens[k]
 				added_surname = True
 		if not added_surname:  # If no surname was added, then simply append the last latter token to prediction
 			new_name += " " + l_tokens[-1]
