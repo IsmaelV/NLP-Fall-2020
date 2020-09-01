@@ -87,6 +87,14 @@ def get_female_male_names():
 	return female_frequency, male_frequency
 
 
+def get_professional_titles():
+	titles = set()
+	with open("./data/professional_titles.txt") as f:
+		for line in f:
+			titles.add(line)
+	return titles
+
+
 def single_name_predicted(init_prediction, l_tokens):
 	"""
 	Given that the prediction was a single name (not possible), we perform operations to add a surname. The initial way
@@ -114,6 +122,12 @@ def single_name_predicted(init_prediction, l_tokens):
 	return init_prediction + " " + l_tokens[-1]
 
 
+def determine_initial_name(tokens, professional_titles):
+	if tokens[0] in professional_titles:
+		return tokens[0] + " " + tokens[1], True
+	return tokens[0], False
+
+
 def add_name(surname_freq, gendered_freq, forename=False):
 	"""
 	Check to see if a name will be added or not
@@ -136,7 +150,7 @@ def add_name(surname_freq, gendered_freq, forename=False):
 	return first_over_surname
 
 
-def create_new_name(f_tokens, l_tokens, f_surnames, l_surnames, f_gender, l_gender):
+def create_new_name(f_tokens, l_tokens, f_surnames, l_surnames, f_gender, l_gender, professional_titles):
 	"""
 	Creates the name of which we are predicting
 	:param f_tokens: List of names before the " AND ". The former name. Need forenames from here
@@ -145,14 +159,16 @@ def create_new_name(f_tokens, l_tokens, f_surnames, l_surnames, f_gender, l_gend
 	:param l_surnames: List of surname frequency from Census data on latter name tokens
 	:param f_gender: List of female or male name frequency from data on former name tokens
 	:param l_gender: List of female or male name frequency from data on latter name tokens
+	:param professional_titles: Set of professional titles
 	:return: String of predicted name
 	"""
 	# Always keep first token. Will always be a forename or a title (Professor, Dr., etc.)
-	new_name = f_tokens[0]
+	new_name, title_found_former = determine_initial_name(f_tokens, professional_titles)
 
 	# Get forenames that we will keep from former
 	add_forename = add_name(f_surnames, f_gender, forename=True)
-	for j in range(1, len(add_forename)):
+	init_index = 2 if title_found_former else 1
+	for j in range(init_index, len(add_forename)):
 		if add_forename[j]:
 			new_name += " " + f_tokens[j]
 		else:  # If not a forename, then skip all subsequent names
@@ -173,7 +189,7 @@ def create_new_name(f_tokens, l_tokens, f_surnames, l_surnames, f_gender, l_gend
 		for j in range(true_index, len(add_surname)):
 			add_surname[j] = True
 
-		for j in range(1, len(add_surname)):
+		for j in range(init_index, len(add_surname)):
 			if add_surname[j]:
 				new_name += " " + f_tokens[j]
 
@@ -192,7 +208,9 @@ def create_new_name(f_tokens, l_tokens, f_surnames, l_surnames, f_gender, l_gend
 			add_surname[j] = True
 
 		# Add all surnames
-		for k in range(1, len(add_surname)):
+		_, title_found_latter = determine_initial_name(l_tokens, professional_titles)
+		l_i = 2 if title_found_latter else 1
+		for k in range(l_i, len(add_surname)):
 			if add_surname[k]:
 				new_name += " " + l_tokens[k]
 				added_surname = True
@@ -235,6 +253,7 @@ def create_predictions(path_to_test, file_to_write):
 	former, latter = read_test(path_to_test)
 	surname_freq = get_surnames()
 	female_freq, male_freq = get_female_male_names()
+	professional_titles = get_professional_titles()
 
 	for i in range(len(former)):
 		# --------------------------------
@@ -247,7 +266,9 @@ def create_predictions(path_to_test, file_to_write):
 		# Create and populate former masks
 		# --------------------------------
 		former_gender_mask = [1]  			# Create gendered mask for former name
-		use_female = female_freq.get(former_tokens[0], -1) >= male_freq.get(former_tokens[0], -1)  	# Check gender
+		_, title_found = determine_initial_name(former_tokens, professional_titles)
+		f_i = 1 if title_found else 0  		# Get forename index for former name
+		use_female = female_freq.get(former_tokens[f_i], -1) >= male_freq.get(former_tokens[f_i], -1)  # Check gender
 		former_surname_mask = [-1]  		# Create surname mask for former name
 		for fs in former_tokens[1:]:  		# Populate former masks
 			former_surname_mask.append(surname_freq.get(fs, -1))
@@ -260,7 +281,9 @@ def create_predictions(path_to_test, file_to_write):
 		# Create and populate latter masks
 		# --------------------------------
 		latter_gender_mask = [1]  			# Create gendered mask for latter name
-		use_female = female_freq.get(latter_tokens[0], -1) >= male_freq.get(latter_tokens[0], -1)  # Check gender
+		_, title_found = determine_initial_name(latter_tokens, professional_titles)
+		l_i = 1 if title_found else 0
+		use_female = female_freq.get(latter_tokens[l_i], -1) >= male_freq.get(latter_tokens[l_i], -1)  # Check gender
 		latter_surname_mask = [-1]  		# Create surname mask for latter name
 		for ls in latter_tokens[1:]:  		# Populate latter masks
 			latter_surname_mask.append(surname_freq.get(ls, -1))
@@ -273,7 +296,7 @@ def create_predictions(path_to_test, file_to_write):
 		# Create the prediction name
 		# --------------------------------
 		my_prediction = create_new_name(former_tokens, latter_tokens, former_surname_mask, latter_surname_mask,
-										former_gender_mask, latter_gender_mask)
+										former_gender_mask, latter_gender_mask, professional_titles)
 
 		if len(my_prediction.strip().split()) == 1:
 			my_prediction = single_name_predicted(my_prediction, latter_tokens)
