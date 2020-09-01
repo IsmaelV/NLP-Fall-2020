@@ -75,14 +75,14 @@ def get_female_male_names():
 		next(f)
 		for line in f:
 			row = line.strip().split()
-			female_frequency[row[0]] = float(row[1])
+			female_frequency[row[0]] = float(row[1]) / 100
 
 	male_frequency = dict()
 	with open("./data/male_names.txt") as f:
 		next(f)
 		for line in f:
 			row = line.strip().split()
-			male_frequency[row[0]] = float(row[1])
+			male_frequency[row[0]] = float(row[1]) / 100
 
 	return female_frequency, male_frequency
 
@@ -265,12 +265,13 @@ def create_predictions(path_to_test, file_to_write):
 		# --------------------------------
 		# Create and populate former masks
 		# --------------------------------
-		former_gender_mask = [1]  			# Create gendered mask for former name
-		_, title_found = determine_initial_name(former_tokens, professional_titles)
-		f_i = 1 if title_found else 0  		# Get forename index for former name
+		_, title_found = determine_initial_name(former_tokens, professional_titles)  # Check if title is used
+		former_gender_mask = [1, 1] if title_found else [1]  						# Create gendered mask for former name
+		f_i = 1 if title_found else 0  												# Get forename index for former name
 		use_female = female_freq.get(former_tokens[f_i], -1) >= male_freq.get(former_tokens[f_i], -1)  # Check gender
-		former_surname_mask = [-1]  		# Create surname mask for former name
-		for fs in former_tokens[1:]:  		# Populate former masks
+		former_surname_mask = [-1, -1] if title_found else [-1]  					# Create surname mask for former name
+		f_i += 1  																	# Get following forename index
+		for fs in former_tokens[f_i:]:  											# Populate former masks
 			former_surname_mask.append(surname_freq.get(fs, -1))
 			if use_female:
 				former_gender_mask.append(female_freq.get(fs, -1))
@@ -280,12 +281,13 @@ def create_predictions(path_to_test, file_to_write):
 		# --------------------------------
 		# Create and populate latter masks
 		# --------------------------------
-		latter_gender_mask = [1]  			# Create gendered mask for latter name
-		_, title_found = determine_initial_name(latter_tokens, professional_titles)
-		l_i = 1 if title_found else 0
+		_, title_found = determine_initial_name(latter_tokens, professional_titles)  	# Check if title is used
+		latter_gender_mask = [1, 1] if title_found else [1]  							# Create gendered mask for latter name
+		l_i = 1 if title_found else 0  													# Get forename index for latter name
 		use_female = female_freq.get(latter_tokens[l_i], -1) >= male_freq.get(latter_tokens[l_i], -1)  # Check gender
-		latter_surname_mask = [-1]  		# Create surname mask for latter name
-		for ls in latter_tokens[1:]:  		# Populate latter masks
+		latter_surname_mask = [-1, -1] if title_found else [-1]  						# Create surname mask for latter name
+		l_i += 1  																		# Get following forename index
+		for ls in latter_tokens[l_i:]:  												# Populate latter masks
 			latter_surname_mask.append(surname_freq.get(ls, -1))
 			if use_female:
 				latter_gender_mask.append(female_freq.get(ls, -1))
