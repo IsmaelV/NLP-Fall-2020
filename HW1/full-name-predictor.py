@@ -91,7 +91,7 @@ def get_professional_titles():
 	titles = set()
 	with open("./data/professional_titles.txt") as f:
 		for line in f:
-			titles.add(line)
+			titles.add(line.strip())
 	return titles
 
 
