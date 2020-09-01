@@ -138,7 +138,7 @@ def add_name(surname_freq, gendered_freq, forename=False):
 	"""
 	first_over_surname = []
 	for s in range(len(surname_freq)):
-		if surname_freq[s] > gendered_freq[s] and abs(gendered_freq[s] - surname_freq[s]) * 100 > 0.05:
+		if surname_freq[s] > gendered_freq[s] and abs(gendered_freq[s] - surname_freq[s]) * 100 > 0.01:
 			if forename:
 				first_over_surname.append(False)
 			else:
@@ -179,19 +179,10 @@ def create_new_name(f_tokens, l_tokens, f_surnames, l_surnames, f_gender, l_gend
 
 	# If a surname exists in the former name, then keep it and ignore the latter name
 	if True in add_surname:
-
-		# If surname found, make all subsequent surnames be True
-		true_index = 100
-		for i in range(len(add_surname)):
-			if add_surname[i]:
-				true_index = i
-				break
-		for j in range(true_index, len(add_surname)):
-			add_surname[j] = True
-
-		for j in range(init_index, len(add_surname)):
-			if add_surname[j]:
-				new_name += " " + f_tokens[j]
+		new_name = ""
+		for name in f_tokens:
+			new_name += name + " "
+		new_name = new_name.strip()
 
 	# If surname does not exist in former name, check the surnames in the latter name
 	else:
