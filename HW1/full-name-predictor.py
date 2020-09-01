@@ -138,7 +138,7 @@ def add_name(surname_freq, gendered_freq, forename=False):
 	"""
 	first_over_surname = []
 	for s in range(len(surname_freq)):
-		if surname_freq[s] > gendered_freq[s]:
+		if surname_freq[s] > gendered_freq[s] and abs(gendered_freq[s] - surname_freq[s]) * 100 > 0.05:
 			if forename:
 				first_over_surname.append(False)
 			else:
