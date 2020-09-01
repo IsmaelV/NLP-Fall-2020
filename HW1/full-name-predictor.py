@@ -204,15 +204,15 @@ def create_new_name(f_tokens, l_tokens, f_surnames, l_surnames, f_gender, l_gend
 
 def evaluate_predictions():
 	"""
-	Read the predictions from predictions.txt made from create_predictions()
+	Read the predictions from full-name-output.csv made from create_predictions()
 	:return: Accuracy of the predictions
 	"""
 	true_answers, former, latter = read_train()  # Former and Latter are extracted for debugging
-	predictions = open("predictions.txt", "r")
+	predictions = open("full-name-output.csv", "r")
 	ind = 0
 	correct = 0
 	for p in predictions:
-		prediction = p.strip()
+		prediction = p.strip().split(',')[1]
 		if prediction == true_answers[ind]:
 			correct += 1
 		else:
@@ -281,7 +281,7 @@ def create_predictions(path_to_test, file_to_write):
 		# --------------------------------
 		# Write results into file
 		# --------------------------------
-		file_to_write.write(my_prediction + "\n")
+		file_to_write.write(former[i] + " AND " + latter[i] + "," + my_prediction + "\n")
 
 	return
 
@@ -289,7 +289,7 @@ def create_predictions(path_to_test, file_to_write):
 if __name__ == "__main__":
 	arguments = check_arguments()
 
-	results = open("predictions.txt", "w")
+	results = open("full-name-output.csv", "w")
 	create_predictions(arguments.path_to_test_data, results)
 	results.close()
 
