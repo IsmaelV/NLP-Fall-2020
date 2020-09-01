@@ -36,7 +36,7 @@ The submission script will run your program on the test file and compare the out
 will do the same, but on a different pair of test and key files which you have not seen before.
 
 ### Program
-You will write a program called full-name-predictor.py in Python 3 (Python 2 has been deprecated), which will take the 
+You will write a program called `full-name-predictor.py` in Python 3 (Python 2 has been deprecated), which will take the 
 path to the test file as a command-line argument. Your program will be invoked in the following way:
 
 > python full-name-predictor.py /path/to/test/data
@@ -51,7 +51,7 @@ All submissions will be completed through [Vocareum](https://labs.vocareum.com/m
 Multiple submissions are allowed; only the final submission will be graded. Each time you submit, a submission script is 
 invoked, which runs the program on the test data. Do not include the data in your submission: the submission script 
 reads the data from a central directory, not from your personal directory. You should only upload your program file to 
-Vocareum, that is full-name-predictor.py; if your program uses auxiliary files (for example, lists of common names), 
+Vocareum, that is `full-name-predictor.py`; if your program uses auxiliary files (for example, lists of common names), 
 then you must also include these in your personal directory.
 
 You are encouraged to submit early and often in order to iron out any problems, especially issues with the format of the 
