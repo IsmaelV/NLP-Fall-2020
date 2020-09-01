@@ -1,8 +1,8 @@
 # Homework 1: Full Name Predictor
 All of README file written by Ron Artstein unless otherwise noted (last section of README).
-## Due date: TBD
-This assignment counts for 5% of the course grade. Assignments turned in after the deadline are subject to a grade 
-penalty (the precise penalty will be announced together with the deadline).
+## Due date: Monday, 7 of September of 2020 at 23:59 (11:59PM) Pacific Time
+This assignment counts for 5% of the course grade. Assignments turned in after the deadline but before Thursday, 
+September 10 are subject to a 20% grade penalty.
 
 ### Overview
 Person names in the English language typically consist of one or more forenames followed by one or more surnames 
