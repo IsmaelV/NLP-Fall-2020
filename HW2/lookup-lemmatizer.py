@@ -13,9 +13,12 @@ def check_arguments():
 	return parser.parse_args()
 
 
-def print_full_report():
+def write_results():
+	result_text = open("lookup-output.txt", "w")
 	for key in training_counts.keys():
+		result_text.write(key + ": " + str(training_counts[key]) + "\n")
 		print(key + ": " + str(training_counts[key]))
+	result_text.close()
 
 
 def populate_lemma_count(train_data_file):
@@ -37,7 +40,7 @@ def populate_lemma_count(train_data_file):
 				lemma_count[form][lemma] = lemma_count[form].get(lemma, 0) + 1
 
 
-def populate_lemma_max():
+def populate_lemma_max_and_training_counts():
 	for form in lemma_count.keys():
 		all_lemmas = lemma_count[form]
 
@@ -89,5 +92,5 @@ if __name__ == "__main__":
 	accuracies = dict()
 
 	populate_lemma_count(train_file)
-	populate_lemma_max()
-	print_full_report()
+	populate_lemma_max_and_training_counts()
+	write_results()
