@@ -47,8 +47,8 @@ def write_results():
 	result_text.close()
 
 
-def populate_lemma_count(train_data_file):
-	train_data = open(train_data_file, 'r', encoding="utf8")
+def populate_lemma_count():
+	train_data = open(train_file, 'r', encoding="utf8")
 
 	for line in train_data:
 		# Tab character identifies lines containing tokens
@@ -66,8 +66,8 @@ def populate_lemma_count(train_data_file):
 				lemma_count[form][lemma] = lemma_count[form].get(lemma, 0) + 1
 
 
-def populate_expected_accuracies(train_data_file):
-	train_data = open(train_data_file, "r", encoding="utf8")
+def populate_expected_accuracies():
+	train_data = open(train_file, "r", encoding="utf8")
 	all_forms_total = 0
 	correct_count = 0
 	identity_count = 0
@@ -176,9 +176,9 @@ if __name__ == "__main__":
 	identity_set = set()
 
 	# Training
-	populate_lemma_count(train_file)
+	populate_lemma_count()
 	populate_lemma_max_and_training_counts()
-	populate_expected_accuracies(train_file)
+	populate_expected_accuracies()
 
 	# Testing
 	run_test()
