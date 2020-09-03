@@ -100,3 +100,11 @@ grading script will allow for this variation; for the supplied data (the submiss
 * Lookup mismatch: 1209 to 1260
 * Lookup accuracy: 0.962775857485 to 0.964282548967
 * Overall accuracy: 0.954445385267 to 0.955884843353
+
+## My Implementation (written by Ismael Villegas-Molina)
+The implementation is very simple. I read in the train data and store a list of lemmas for each word form. Once I have 
+this, I extract the one with the highest occurrence in lemma_max where key is word form and value is the lemma. This is 
+essentially serving as a lookup table. We also keep track of the statistics of these files (total amount, accuracy, etc.).
+Once we have these values stored, we revisit the train data to check the expected values (how will this lookup table 
+perform on the train data). Then finally we run this lookup table on the test data and get the results. All are written 
+on a text file and also print on the terminal for ease of access.
