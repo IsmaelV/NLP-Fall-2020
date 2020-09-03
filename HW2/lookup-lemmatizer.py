@@ -30,11 +30,20 @@ def write_results():
 		result_text.write(key + ": " + str(training_counts[key]) + "\n")
 		print(key + ": " + str(training_counts[key]))
 	print("Expected lookup:", str(accuracies["Expected lookup"]))
-	result_text.write("Expected lookup: " + str(accuracies["Expected lookup"]) + "\n")
+	result_text.write("Expected lookup accuracy: " + str(accuracies["Expected lookup"]) + "\n")
 	print("Identities lookup:", str(accuracies["Identities lookup"]))
-	result_text.write("Identities lookup: " + str(accuracies["Identities lookup"]) + "\n")
+	result_text.write("Expected identity accuracy: " + str(accuracies["Identities lookup"]) + "\n")
 
+	print()
 	result_text.write("Test results\n")
+	for key in test_counts.keys():
+		result_text.write(key + ": " + str(test_counts[key]) + "\n")
+		print(key + ": " + str(test_counts[key]))
+	for key in accuracies.keys():
+		if key == "Expected lookup" or key == "Identities lookup":
+			continue
+		result_text.write(key + ": " + str(accuracies[key]) + "\n")
+		print(key + ": " + str(accuracies[key]))
 	result_text.close()
 
 
@@ -106,6 +115,38 @@ def populate_lemma_max_and_training_counts():
 			training_counts["Ambiguous most common tokens"] += all_lemmas[highest_lemma]
 
 
+def run_test():
+	test_data = open(test_file, "r", encoding="utf8")
+
+	for line in test_data:
+		# Tab character identifies lines containing tokens
+		if re.search('\t', line):
+			# Tokens represented as tab-separated fields
+			field = line.strip().split('\t')
+
+			# Word form in second field, lemma in third field
+			form = field[1]
+			lemma = field[2]
+
+			test_counts["Total test items"] += 1
+			if form in lemma_max.keys():
+				test_counts["Found in lookup table"] += 1
+				if lemma_max[form] == lemma:
+					test_counts["Lookup match"] += 1
+				else:
+					test_counts["Lookup mismatch"] += 1
+			else:
+				test_counts["Not found in lookup table"] += 1
+				if form == lemma:
+					test_counts["Identity match"] += 1
+				else:
+					test_counts["Identity mismatch"] += 1
+
+	accuracies["Lookup accuracy"] = test_counts["Lookup match"] / test_counts["Found in lookup table"]
+	accuracies["Identity accuracy"] = test_counts["Identity match"] / test_counts["Not found in lookup table"]
+	accuracies["Overall accuracy"] = (test_counts["Lookup match"] + test_counts["Identity match"]) / test_counts["Total test items"]
+
+
 if __name__ == "__main__":
 	arguments = check_arguments()
 
@@ -140,7 +181,7 @@ if __name__ == "__main__":
 	populate_expected_accuracies(train_file)
 
 	# Testing
-	# TODO: implement testing functions
+	run_test()
 
 	# Show results
 	write_results()
