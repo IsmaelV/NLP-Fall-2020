@@ -1,3 +1,13 @@
+"""
+Simple Lemmatizer
+a big lookup table, which maps every word form attested in the training data to the most common lemma associated with
+that form. At test time, the program checks if a form is in the lookup table, and if so, it gives the associated lemma;
+if the form is not in the lookup table, it gives the form itself as the lemma (identity mapping).
+
+File is based off start file given by Prof. Artstein
+
+:author: Ismael Villegas-Molina
+"""
 import re
 import argparse
 
@@ -15,9 +25,16 @@ def check_arguments():
 
 def write_results():
 	result_text = open("lookup-output.txt", "w")
+	result_text.write("Training statistics\n")
 	for key in training_counts.keys():
 		result_text.write(key + ": " + str(training_counts[key]) + "\n")
 		print(key + ": " + str(training_counts[key]))
+	print("Expected lookup:", str(accuracies["Expected lookup"]))
+	result_text.write("Expected lookup: " + str(accuracies["Expected lookup"]) + "\n")
+	print("Identities lookup:", str(accuracies["Identities lookup"]))
+	result_text.write("Identities lookup: " + str(accuracies["Identities lookup"]) + "\n")
+
+	result_text.write("Test results\n")
 	result_text.close()
 
 
@@ -40,6 +57,28 @@ def populate_lemma_count(train_data_file):
 				lemma_count[form][lemma] = lemma_count[form].get(lemma, 0) + 1
 
 
+def populate_expected_accuracies(train_data_file):
+	train_data = open(train_data_file, "r", encoding="utf8")
+	all_forms_total = 0
+	correct_count = 0
+	identity_count = 0
+	for line in train_data:
+		if re.search('\t', line):
+			field = line.strip().split('\t')
+			form = field[1]
+			lemma = field[2]
+
+			if lemma_max[form] == lemma:  					# Correct lemma in lookup table
+				correct_count += 1
+			if form in identity_set and form == lemma:  	# Correct lemma as identity
+				identity_count += 1
+
+			all_forms_total += 1
+
+	accuracies['Expected lookup'] = correct_count / all_forms_total
+	accuracies['Identities lookup'] = identity_count / all_forms_total
+
+
 def populate_lemma_max_and_training_counts():
 	for form in lemma_count.keys():
 		all_lemmas = lemma_count[form]
@@ -55,6 +94,7 @@ def populate_lemma_max_and_training_counts():
 			all_lemma_count += all_lemmas[lemma]
 			if lemma == form:
 				training_counts["Identity tokens"] += all_lemmas[lemma]
+				identity_set.add(form)
 		training_counts["Wordform tokens"] += all_lemma_count
 
 		if len(all_lemmas) == 1:
@@ -89,8 +129,18 @@ if __name__ == "__main__":
 					'Not found in lookup table', 'Identity match', 'Identity mismatch']
 	test_counts = dict.fromkeys(test_outcomes, 0)
 
+	# Dictionary holding all accuracies
 	accuracies = dict()
 
+	identity_set = set()
+
+	# Training
 	populate_lemma_count(train_file)
 	populate_lemma_max_and_training_counts()
+	populate_expected_accuracies(train_file)
+
+	# Testing
+	# TODO: implement testing functions
+
+	# Show results
 	write_results()
