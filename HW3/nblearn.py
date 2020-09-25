@@ -14,6 +14,8 @@ def check_arguments():
 	"""
 	parser = argparse.ArgumentParser()
 	parser.add_argument("path_to_input", metavar="train-data-path", help="Path to the file of train data", type=str)
+	parser.add_argument("homework_toggle", metavar="homework-toggle", help="0 for submission | 1 for local testing",
+						nargs='*', default=0, type=int)
 	return parser.parse_args()
 
 
@@ -184,7 +186,7 @@ class NbClassifier(object):
 
 		return prediction
 
-	def evaluate(self, all_neg_paths, all_pos_paths, all_dec_paths, all_truth_paths):
+	def my_evaluation(self, all_neg_paths, all_pos_paths, all_dec_paths, all_truth_paths):
 		true_positives = 0
 		false_positives = 0
 		true_negatives = 0
@@ -250,6 +252,13 @@ class NbClassifier(object):
 
 		return precision, recall, fscore, accuracy
 
+	def homework_testing(self, input_text):
+		prediction_result = self.predict(input_text)
+		result = ""
+		result += "truthful " if prediction_result["truth"] > prediction_result["deception"] else "deceptive "
+		result += "positive " if prediction_result["positive"] > prediction_result["negative"] else "negative "
+		return result
+
 	def save(self, save_file_name):
 		save_file = open(save_file_name, 'w')
 		new_words_given_label = dict()
@@ -293,9 +302,9 @@ def get_data_directories(root_path):
 	positive_path = root_path
 	for i in os.listdir(root_path):
 		if "positive" in i:
-			positive_path += i + '/'
+			positive_path += '/' + i + '/'
 		elif "negative" in i:
-			negative_path += i + '/'
+			negative_path += '/' + i + '/'
 
 	neg_decept = negative_path
 	neg_truth = negative_path
@@ -341,8 +350,29 @@ def preprocess_text(given_text):
 	return words
 
 
-if __name__ == "__main__":
-	arguments = check_arguments()
+def homework_submission():
+	neg_decept_path, neg_truth_path, pos_decept_path, pos_truth_path = get_data_directories(arguments.path_to_input)
+
+	neg_decept_train = [neg_decept_path + x + '/' for x in os.listdir(neg_decept_path) if "fold" in x]
+	neg_truth_train = [neg_truth_path + x + '/' for x in os.listdir(neg_truth_path) if "fold" in x]
+	pos_decept_train = [pos_decept_path + x + '/' for x in os.listdir(pos_decept_path) if "fold" in x]
+	pos_truth_train = [pos_truth_path + x + '/' for x in os.listdir(pos_truth_path) if "fold" in x]
+
+	all_train_paths = neg_decept_train + neg_truth_train + pos_decept_train + pos_truth_train
+
+	n_paths = neg_decept_train + neg_truth_train
+	p_paths = pos_decept_train + pos_truth_train
+	d_paths = neg_decept_train + pos_decept_train
+	t_paths = neg_truth_train + pos_truth_train
+
+	my_nb_classifier = NbClassifier()
+	my_nb_classifier.load_new(all_train_paths, n_paths, p_paths, d_paths, t_paths,
+							stopword_file="./data/stopwords-mini.txt")
+	my_nb_classifier.save("./nbmodel.txt")
+	return
+
+
+def local_testing():
 	neg_decept_path, neg_truth_path, pos_decept_path, pos_truth_path = get_data_directories(arguments.path_to_input)
 
 	neg_decept_train, neg_decept_dev = split_train_dev(neg_decept_path)
@@ -358,6 +388,15 @@ if __name__ == "__main__":
 	t_paths = neg_truth_train + pos_truth_train
 
 	my_nb_classifier = NbClassifier()
-	my_nb_classifier.load_new(all_train_paths, n_paths, p_paths, d_paths, t_paths, stopword_file="./data/stopwords-mini.txt")
+	my_nb_classifier.load_new(all_train_paths, n_paths, p_paths, d_paths, t_paths,
+							stopword_file="./data/stopwords-mini.txt")
 	my_nb_classifier.save("./nbmodel.txt")
+	return
 
+
+if __name__ == "__main__":
+	arguments = check_arguments()
+	if arguments.homework_toggle == 0:
+		homework_submission()
+	else:
+		local_testing()
