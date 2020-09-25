@@ -11,6 +11,11 @@ def check_arguments():
 	return parser.parse_args()
 
 
+def print_results(data):
+	print("Precision:{} Recall:{} F-Score:{} Accuracy:{}".format(*data))
+	return
+
+
 if __name__ == "__main__":
 	arguments = check_arguments()
 	print("Hello world")
