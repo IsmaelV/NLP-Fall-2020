@@ -21,9 +21,7 @@ def check_arguments():
 class PercepClassifier(object):
 
 	def __init__(self):
-		self.word_given_label = {}
 		self.stop_words = []
-		self.counts = dict()
 		self.my_features = []
 		self.all_training_data = dict()
 		self.my_pn_weights_vanilla = dict()
@@ -33,18 +31,18 @@ class PercepClassifier(object):
 
 	def collect_attribute_types(self, threshold):
 		self.my_features = set()
-		self.counts = dict()
+		counts = dict()
 		for key in self.all_training_data.keys():
 			processed_text = self.all_training_data[key][0]
 			for word in processed_text:
 				if word in self.stop_words:
 					continue
-				if word in self.counts:
-					self.counts[word] += 1
+				if word in counts:
+					counts[word] += 1
 				else:
-					self.counts[word] = 1
-		ordered_counts = sorted(self.counts.items(), key=lambda x: x[1], reverse=True)
-		for key in ordered_counts:
+					counts[word] = 1
+		counts = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+		for key in counts:
 			if key[1] >= threshold:
 				self.my_features.add(key[0])
 			if len(self.my_features) >= 1000:
@@ -75,7 +73,6 @@ class PercepClassifier(object):
 	def train(self, epochs):
 		self.my_pn_weights_vanilla = {k: 0 for k in self.my_features}
 		self.my_td_weights_vanilla = {k: 0 for k in self.my_features}
-		my_observations = {k: 0 for k in self.my_features}
 		self.pn_bias_vanilla = 0
 		self.td_bias_vanilla = 0
 		my_shuffled_keys = list(self.all_training_data.keys())
@@ -84,19 +81,24 @@ class PercepClassifier(object):
 			random.shuffle(my_shuffled_keys)
 			for k in my_shuffled_keys:
 				my_line, pn, td = self.all_training_data[k]
+				my_observations = dict()
 				for w in my_line:
 					if my_observations.get(w):
 						my_observations[w] += 1
+					else:
+						my_observations[w] = 1
 				my_pn_activation = self.activation_function(self.my_pn_weights_vanilla, my_observations, self.pn_bias_vanilla)
 				my_td_activation = self.activation_function(self.my_td_weights_vanilla, my_observations, self.td_bias_vanilla)
 
 				if (my_pn_activation * pn) <= 0:
-					for weight_key in self.my_pn_weights_vanilla.keys():
-						self.my_pn_weights_vanilla[weight_key] += my_observations[weight_key] * pn
+					for obs_keys in my_observations:
+						if self.my_pn_weights_vanilla.get(obs_keys) is not None:
+							self.my_pn_weights_vanilla[obs_keys] += my_observations[obs_keys] * pn
 					self.pn_bias_vanilla += pn
 				if (my_td_activation * td) <= 0:
-					for weight_key in self.my_td_weights_vanilla.keys():
-						self.my_td_weights_vanilla[weight_key] += my_observations[weight_key] * td
+					for obs_keys in my_observations:
+						if self.my_td_weights_vanilla.get(obs_keys) is not None:
+							self.my_td_weights_vanilla[obs_keys] += my_observations[obs_keys] * td
 					self.td_bias_vanilla += td
 		print()
 		return
@@ -104,8 +106,8 @@ class PercepClassifier(object):
 	@staticmethod
 	def activation_function(weights, observations, b):
 		activation = 0
-		for key in weights.keys():
-			if weights[key] == 0 or observations[key] == 0:
+		for key in observations:
+			if not weights.get(key) or weights[key] == 0:
 				continue
 			activation += (weights[key] * observations[key])
 		activation += b
@@ -192,7 +194,8 @@ class PercepClassifier(object):
 	def save(self, save_file_name):
 		save_file = open(save_file_name, 'w')
 		all_info = {"stop_words": self.stop_words, "my_pn_weights_vanilla": self.my_pn_weights_vanilla,
-					"my_td_weights_vanilla": self.my_td_weights_vanilla}
+					"pn_bias_vanilla": self.pn_bias_vanilla, "my_td_weights_vanilla": self.my_td_weights_vanilla,
+					"td_bias_vanilla": self.td_bias_vanilla}
 		save_file.write(json.dumps(all_info))
 		save_file.close()
 		return True
@@ -206,6 +209,8 @@ class PercepClassifier(object):
 		self.stop_words = data["stop_words"]
 		self.my_pn_weights_vanilla = data["my_pn_weights_vanilla"]
 		self.my_td_weights_vanilla = data["my_td_weights_vanilla"]
+		self.pn_bias_vanilla = data["pn_bias_vanilla"]
+		self.td_bias_vanilla = data["td_bias_vanilla"]
 		return True
 
 
