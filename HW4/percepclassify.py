@@ -21,15 +21,41 @@ def check_arguments():
 class PercepClassifier(object):
 
 	def __init__(self):
-		self.label_prior = {}
-		self.word_given_label = {}
 		self.stop_words = []
+		self.my_features = []
+		self.all_training_data = dict()
+		self.my_pn_weights_vanilla = dict()
+		self.my_td_weights_vanilla = dict()
+		self.pn_bias_vanilla = 0
+		self.td_bias_vanilla = 0
 
-	def load_new(self, neg_paths, pos_paths, dec_paths, truth_paths, stopword_file=None):
+	def collect_attribute_types(self, threshold):
+		self.my_features = set()
+		counts = dict()
+		for key in self.all_training_data.keys():
+			processed_text = self.all_training_data[key][0]
+			for word in processed_text:
+				if word in self.stop_words:
+					continue
+				if word in counts:
+					counts[word] += 1
+				else:
+					counts[word] = 1
+		counts = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+		for key in counts:
+			if key[1] >= threshold:
+				self.my_features.add(key[0])
+			if len(self.my_features) >= 1000:
+				break
+		self.my_features = list(self.my_features)
+		return self.my_features
+
+	def load_new(self, all_training_data, t, epochs, stopword_file=None):
 		if stopword_file:
 			self.stop_words_extracted(stopword_file)
-
-		self.train(neg_paths, pos_paths, dec_paths, truth_paths)
+		self.all_training_data = all_training_data
+		self.collect_attribute_types(t)
+		self.train(epochs)
 
 	def stop_words_extracted(self, path_to_stopwords):
 		"""
@@ -44,126 +70,52 @@ class PercepClassifier(object):
 
 		return self.stop_words
 
-	def train(self, all_neg_paths, all_pos_paths, all_dec_paths, all_truth_paths):
-		self.label_prior = {}
-		self.word_given_label = {}
-		positive_words = {}
-		pos_num = 0
-		negative_words = {}
-		neg_num = 0
-		deception_words = {}
-		dec_num = 0
-		truth_words = {}
-		truth_num = 0
-		c = 0.6
+	def train(self, epochs):
+		self.my_pn_weights_vanilla = {k: 0 for k in self.my_features}
+		self.my_td_weights_vanilla = {k: 0 for k in self.my_features}
+		self.pn_bias_vanilla = 0
+		self.td_bias_vanilla = 0
+		my_shuffled_keys = list(self.all_training_data.keys())
+		for e in range(epochs):
+			print("\r", "Epoch {} of {}".format(e+1, epochs), end="")
+			random.shuffle(my_shuffled_keys)
+			for k in my_shuffled_keys:
+				my_line, pn, td = self.all_training_data[k]
+				my_observations = dict()
+				for w in my_line:
+					if my_observations.get(w):
+						my_observations[w] += 1
+					else:
+						my_observations[w] = 1
+				my_pn_activation = self.activation_function(self.my_pn_weights_vanilla, my_observations, self.pn_bias_vanilla)
+				my_td_activation = self.activation_function(self.my_td_weights_vanilla, my_observations, self.td_bias_vanilla)
 
-		for neg_path in all_neg_paths:
-			neg_files = glob.glob(neg_path + "*.txt")
-			for neg_file in neg_files:
-				with open(neg_file, 'r') as f:
-					for line in f:
-						words = preprocess_text(line).split()
-						neg_num += len(words)
-						for word in words:
-							if word in negative_words and word not in self.stop_words:
-								negative_words[word] += 1
-							elif word not in negative_words and word not in self.stop_words:
-								negative_words[word] = 1
-							if word not in positive_words and word not in self.stop_words:
-								positive_words[word] = 0
-		for pos_path in all_pos_paths:
-			pos_files = glob.glob(pos_path + "*.txt")
-			for pos_file in pos_files:
-				with open(pos_file, 'r') as f:
-					for line in f:
-						words = preprocess_text(line).split()
-						pos_num += len(words)
-						for word in words:
-							if word in positive_words and word not in self.stop_words:
-								positive_words[word] += 1
-							elif word not in positive_words and word not in self.stop_words:
-								positive_words[word] = 1
-							if word not in negative_words and word not in self.stop_words:
-								negative_words[word] = 0
-		for dec_path in all_dec_paths:
-			dec_files = glob.glob(dec_path + "*.txt")
-			for dec_file in dec_files:
-				with open(dec_file, 'r') as f:
-					for line in f:
-						words = preprocess_text(line).split()
-						dec_num += len(words)
-						for word in words:
-							if word in deception_words and word not in self.stop_words:
-								deception_words[word] += 1
-							elif word not in deception_words and word not in self.stop_words:
-								deception_words[word] = 1
-							if word not in truth_words and word not in self.stop_words:
-								truth_words[word] = 0
-		for truth_path in all_truth_paths:
-			truth_files = glob.glob(truth_path + "*.txt")
-			for truth_file in truth_files:
-				with open(truth_file, 'r') as f:
-					for line in f:
-						words = preprocess_text(line).split()
-						truth_num += len(words)
-						for word in words:
-							if word in truth_words and word not in self.stop_words:
-								truth_words[word] += 1
-							elif word not in truth_words and word not in self.stop_words:
-								truth_words[word] = 1
-							if word not in deception_words and word not in self.stop_words:
-								deception_words[word] = 0
-
-		total_pos_neg = pos_num + neg_num
-		self.label_prior["positive"] = pos_num / total_pos_neg
-		self.label_prior["negative"] = neg_num / total_pos_neg
-
-		total_truth_dec = truth_num + dec_num
-		self.label_prior["truth"] = truth_num / total_truth_dec
-		self.label_prior["deception"] = dec_num / total_truth_dec
-
-		# vocab = len(self.attribute_types)
-		# for key in positive_words:
-		# 	self.word_given_label[(key, "positive")] = (positive_words[key] + c) / (pos_num + (c * vocab))
-		# for key in negative_words:
-		# 	self.word_given_label[(key, "negative")] = (negative_words[key] + c) / (neg_num + (c * vocab))
-		# for key in truth_words:
-		# 	self.word_given_label[(key, "truth")] = (truth_words[key] + c) / (truth_num + (c * vocab))
-		# for key in deception_words:
-		# 	self.word_given_label[(key, "deception")] = (deception_words[key] + c) / (dec_num + (c * vocab))
-
+				if (my_pn_activation * pn) <= 0:
+					for obs_keys in my_observations:
+						if self.my_pn_weights_vanilla.get(obs_keys) is not None:
+							self.my_pn_weights_vanilla[obs_keys] += my_observations[obs_keys] * pn
+					self.pn_bias_vanilla += pn
+				if (my_td_activation * td) <= 0:
+					for obs_keys in my_observations:
+						if self.my_td_weights_vanilla.get(obs_keys) is not None:
+							self.my_td_weights_vanilla[obs_keys] += my_observations[obs_keys] * td
+					self.td_bias_vanilla += td
+		print()
 		return
+
+	@staticmethod
+	def activation_function(weights, observations, b):
+		activation = 0
+		for key in observations:
+			if not weights.get(key) or weights[key] == 0:
+				continue
+			activation += (weights[key] * observations[key])
+		activation += b
+		return activation
 
 	def predict(self, text):
 		words = preprocess_text(text).split()
 		prediction = dict()
-
-		prediction["positive"] = math.log(self.label_prior["positive"], 10)
-		prediction["negative"] = math.log(self.label_prior["negative"], 10)
-		prediction["truth"] = math.log(self.label_prior["truth"], 10)
-		prediction["deception"] = math.log(self.label_prior["deception"], 10)
-
-		# Positive calculations
-		for word in words:
-			if (word, "positive") not in self.word_given_label:
-				continue
-			prediction["positive"] += math.log(self.word_given_label[(word, "positive")], 10)
-		# Negative calculations
-		for word in words:
-			if (word, "negative") not in self.word_given_label:
-				continue
-			prediction["negative"] += math.log(self.word_given_label[(word, "negative")], 10)
-		# Truth calculations
-		for word in words:
-			if (word, "truth") not in self.word_given_label:
-				continue
-			prediction["truth"] += math.log(self.word_given_label[(word, "truth")], 10)
-		# Deception calculations
-		for word in words:
-			if (word, "deception") not in self.word_given_label:
-				continue
-			prediction["deception"] += math.log(self.word_given_label[(word, "deception")], 10)
-
 		return prediction
 
 	def my_evaluation(self, all_neg_paths, all_pos_paths, all_dec_paths, all_truth_paths):
@@ -241,27 +193,24 @@ class PercepClassifier(object):
 
 	def save(self, save_file_name):
 		save_file = open(save_file_name, 'w')
-		new_words_given_label = dict()
-		for key in self.word_given_label.keys():
-			new_words_given_label[key[0] + "," + key[1]] = self.word_given_label[key]
-		all_info = {"label_prior": self.label_prior, "word_given_label": new_words_given_label, "stop_words": self.stop_words}
+		all_info = {"stop_words": self.stop_words, "my_pn_weights_vanilla": self.my_pn_weights_vanilla,
+					"pn_bias_vanilla": self.pn_bias_vanilla, "my_td_weights_vanilla": self.my_td_weights_vanilla,
+					"td_bias_vanilla": self.td_bias_vanilla}
 		save_file.write(json.dumps(all_info))
 		save_file.close()
 		return True
 
 	def load_pretrained(self, model_file):
-		self.label_prior = {}
-		self.word_given_label = {}
 		self.stop_words = []
 
 		f = open(model_file, 'r')
 		data = json.load(f)
 		f.close()
 		self.stop_words = data["stop_words"]
-		self.label_prior = data["label_prior"]
-		for key in data["word_given_label"]:
-			new_key = tuple(key.split(','))
-			self.word_given_label[new_key] = data["word_given_label"][key]
+		self.my_pn_weights_vanilla = data["my_pn_weights_vanilla"]
+		self.my_td_weights_vanilla = data["my_td_weights_vanilla"]
+		self.pn_bias_vanilla = data["pn_bias_vanilla"]
+		self.td_bias_vanilla = data["td_bias_vanilla"]
 		return True
 
 
@@ -293,14 +242,14 @@ if __name__ == "__main__":
 	my_percep_classifier = PercepClassifier()
 	my_percep_classifier.load_pretrained(arguments.path_to_model)
 
-	result_file = open("percepoutput.txt", 'w')
-
-	init_files = get_all_leaf_files(arguments.path_to_input)
-	final_files = [x for x in init_files if "fold1" in x]
-	for i in range(len(final_files)):
-		with open(final_files[i], "r") as f:
-			for line in f:
-				both_labels = my_percep_classifier.homework_testing(line)
-				result_file.write(both_labels + final_files[i] + "\n")
-
-	result_file.close()
+	# result_file = open("percepoutput.txt", 'w')
+	#
+	# init_files = get_all_leaf_files(arguments.path_to_input)
+	# final_files = [x for x in init_files if "fold1" in x]
+	# for i in range(len(final_files)):
+	# 	with open(final_files[i], "r") as f:
+	# 		for line in f:
+	# 			both_labels = my_percep_classifier.homework_testing(line)
+	# 			result_file.write(both_labels + final_files[i] + "\n")
+	#
+	# result_file.close()
