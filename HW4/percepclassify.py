@@ -1,8 +1,6 @@
 import argparse
 import os
 import string
-import glob
-import math
 import random
 import json
 
@@ -310,11 +308,11 @@ if __name__ == "__main__":
 		with open(final_files[i], "r") as test_file:
 			line = preprocess_text(test_file.readline()).split()
 			obs = dict()
-			for w in line:
-				if obs.get(w):
-					obs[w] += 1
+			for word_observation in line:
+				if obs.get(word_observation):
+					obs[word_observation] += 1
 				else:
-					obs[w] = 1
+					obs[word_observation] = 1
 			both_labels = my_percep_classifier.homework_testing(obs)
 			result_file.write(both_labels + final_files[i] + "\n")
 
