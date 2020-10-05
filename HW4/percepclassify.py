@@ -308,8 +308,14 @@ if __name__ == "__main__":
 	final_files = [x for x in init_files if "fold1" in x]
 	for i in range(len(final_files)):
 		with open(final_files[i], "r") as test_file:
-			line = test_file.readline()
-			both_labels = my_percep_classifier.homework_testing(line)
+			line = preprocess_text(test_file.readline()).split()
+			obs = dict()
+			for w in line:
+				if obs.get(w):
+					obs[w] += 1
+				else:
+					obs[w] = 1
+			both_labels = my_percep_classifier.homework_testing(obs)
 			result_file.write(both_labels + final_files[i] + "\n")
 
 	result_file.close()
