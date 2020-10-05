@@ -113,82 +113,62 @@ class PercepClassifier(object):
 		activation += b
 		return activation
 
-	def predict(self, text):
-		words = preprocess_text(text).split()
-		prediction = dict()
-		return prediction
+	def predict(self, observations):
+		return (self.activation_function(self.my_pn_weights_vanilla, observations, self.pn_bias_vanilla),
+						self.activation_function(self.my_td_weights_vanilla, observations, self.td_bias_vanilla))
 
-	def my_evaluation(self, all_neg_paths, all_pos_paths, all_dec_paths, all_truth_paths):
+	def my_evaluation(self, all_dev_data):
 		true_positives = 0
 		false_positives = 0
 		true_negatives = 0
 		false_negatives = 0
 
-		all_files = []
-
-		# ---------------------------------
-		# Populate all_files for evaluation
-		# ---------------------------------
-		for neg_path in all_neg_paths:
-			neg_files = glob.glob(neg_path + "*.txt")
-			for neg_file in neg_files:
-				all_files.append((neg_file, "negative"))
-		for pos_path in all_pos_paths:
-			pos_files = glob.glob(pos_path + "*.txt")
-			for pos_file in pos_files:
-				all_files.append((pos_file, "positive"))
-		for dec_path in all_dec_paths:
-			dec_files = glob.glob(dec_path + "*.txt")
-			for dec_file in dec_files:
-				all_files.append((dec_file, "deception"))
-		for truth_path in all_truth_paths:
-			truth_files = glob.glob(truth_path + "*.txt")
-			for truth_file in truth_files:
-				all_files.append((truth_file, "truth"))
-
-		random.shuffle(all_files)
+		all_dev_keys = list(all_dev_data.keys())
+		random.shuffle(all_dev_keys)
 
 		# Perform evaluation
-		for file_name, correct_tag in all_files:
-			with open(file_name, 'r') as f:
-				for line in f:
-					prediction_result = self.predict(line)
+		for k in all_dev_keys:
+			input_text, correct_pn, correct_td = all_dev_data[k]
+			my_observations = dict()
+			for w in input_text:
+				if my_observations.get(w):
+					my_observations[w] += 1
+				else:
+					my_observations[w] = 1
+			prediction_pn, prediction_td = self.predict(my_observations)
 
-					if correct_tag == "truth" or correct_tag == "deception":  	# Truth/Deception classifier
-						if prediction_result["truth"] > prediction_result["deception"]:
-							if correct_tag == "truth":
-								true_positives += 1
-							else:
-								false_positives += 1
-						else:
-							if correct_tag == "truth":
-								false_negatives += 1
-							else:
-								true_negatives += 1
-					else:  														# Positive/Negative classifier
-						if prediction_result["positive"] > prediction_result["negative"]:
-							if correct_tag == "positive":
-								true_positives += 1
-							else:
-								false_positives += 1
-						else:
-							if correct_tag == "positive":
-								false_negatives += 1
-							else:
-								true_negatives += 1
+			if prediction_pn > 0 and correct_pn > 0:
+				true_positives += 1
+			elif prediction_pn > 0 and correct_pn < 0:
+				false_positives += 1
+			elif prediction_pn < 0 and correct_pn > 0:
+				false_negatives += 1
+			elif prediction_pn < 0 and correct_pn < 0:
+				true_negatives += 1
+
+			if prediction_td > 0 and correct_td > 0:
+				true_positives += 1
+			elif prediction_td > 0 and correct_td < 0:
+				false_positives += 1
+			elif prediction_td < 0 and correct_td > 0:
+				false_negatives += 1
+			elif prediction_td < 0 and correct_td < 0:
+				true_negatives += 1
 
 		accuracy = (true_positives + true_negatives) / (true_positives + true_negatives + false_negatives + false_positives)
 		precision = true_positives / (true_positives + false_positives)
 		recall = true_positives / (true_positives + false_negatives)
 		fscore = (precision * recall * 2) / (precision + recall)
 
-		return precision, recall, fscore, accuracy
+		string_result = "Precision:{} Recall:{} F-Score:{} Accuracy:{}".format(precision, recall, fscore, accuracy)
+
+		return string_result
 
 	def homework_testing(self, input_text):
-		prediction_result = self.predict(input_text)
+		prediction_pn, prediction_td = self.predict(input_text)
 		result = ""
-		result += "truthful " if prediction_result["truth"] > prediction_result["deception"] else "deceptive "
-		result += "positive " if prediction_result["positive"] > prediction_result["negative"] else "negative "
+		result += "truthful " if prediction_td > 0 else "deceptive "
+		result += "positive " if prediction_pn > 0 else "negative "
 		return result
 
 	def save(self, save_file_name):
