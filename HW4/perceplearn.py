@@ -267,10 +267,10 @@ class PercepClassifier(object):
 		data = json.load(f)
 		f.close()
 		self.stop_words = data["stop_words"]
-		self.my_pn_weights_loaded = data["my_pn_weights_loaded"]
-		self.my_td_weights_loaded = data["my_td_weights_loaded"]
-		self.pn_bias_loaded = data["pn_bias_loaded"]
-		self.td_bias_loaded = data["td_bias_loaded"]
+		self.my_pn_weights_loaded = data["my_pn_weights"]
+		self.my_td_weights_loaded = data["my_td_weights"]
+		self.pn_bias_loaded = data["pn_bias"]
+		self.td_bias_loaded = data["td_bias"]
 		return True
 
 
@@ -401,5 +401,4 @@ if __name__ == "__main__":
 
 	my_percep_classifier = PercepClassifier()
 	my_percep_classifier.load_new(all_train_files, 2, 100, "../HW3/data/stopwords-mini.txt")
-
-	print(my_percep_classifier.my_evaluation(all_dev_files))
+	my_percep_classifier.save("vanillamodel.txt", "averagedmodel.txt")

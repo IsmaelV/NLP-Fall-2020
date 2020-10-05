@@ -267,10 +267,10 @@ class PercepClassifier(object):
 		data = json.load(f)
 		f.close()
 		self.stop_words = data["stop_words"]
-		self.my_pn_weights_loaded = data["my_pn_weights_loaded"]
-		self.my_td_weights_loaded = data["my_td_weights_loaded"]
-		self.pn_bias_loaded = data["pn_bias_loaded"]
-		self.td_bias_loaded = data["td_bias_loaded"]
+		self.my_pn_weights_loaded = data["my_pn_weights"]
+		self.my_td_weights_loaded = data["my_td_weights"]
+		self.pn_bias_loaded = data["pn_bias"]
+		self.td_bias_loaded = data["td_bias"]
 		return True
 
 
@@ -302,14 +302,14 @@ if __name__ == "__main__":
 	my_percep_classifier = PercepClassifier()
 	my_percep_classifier.load_pretrained(arguments.path_to_model)
 
-	# result_file = open("percepoutput.txt", 'w')
-	#
-	# init_files = get_all_leaf_files(arguments.path_to_input)
-	# final_files = [x for x in init_files if "fold1" in x]
-	# for i in range(len(final_files)):
-	# 	with open(final_files[i], "r") as f:
-	# 		for line in f:
-	# 			both_labels = my_percep_classifier.homework_testing(line)
-	# 			result_file.write(both_labels + final_files[i] + "\n")
-	#
-	# result_file.close()
+	result_file = open("percepoutput.txt", 'w')
+
+	init_files = get_all_leaf_files(arguments.path_to_input)
+	final_files = [x for x in init_files if "fold1" in x]
+	for i in range(len(final_files)):
+		with open(final_files[i], "r") as test_file:
+			line = test_file.readline()
+			both_labels = my_percep_classifier.homework_testing(line)
+			result_file.write(both_labels + final_files[i] + "\n")
+
+	result_file.close()
