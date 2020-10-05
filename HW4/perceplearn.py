@@ -28,6 +28,14 @@ class PercepClassifier(object):
 		self.my_td_weights_vanilla = dict()
 		self.pn_bias_vanilla = 0
 		self.td_bias_vanilla = 0
+		self.my_pn_weights_averaged = dict()
+		self.my_td_weights_averaged = dict()
+		self.pn_bias_averaged = 0
+		self.td_bias_averaged = 0
+		self.my_pn_weights_loaded = dict()
+		self.my_td_weights_loaded = dict()
+		self.pn_bias_loaded = 0
+		self.td_bias_loaded = 0
 
 	def collect_attribute_types(self, threshold):
 		self.my_features = set()
@@ -50,11 +58,11 @@ class PercepClassifier(object):
 		self.my_features = list(self.my_features)
 		return self.my_features
 
-	def load_new(self, all_training_data, t, epochs, stopword_file=None):
+	def load_new(self, all_training_data, threshold, epochs, stopword_file=None):
 		if stopword_file:
 			self.stop_words_extracted(stopword_file)
 		self.all_training_data = all_training_data
-		self.collect_attribute_types(t)
+		self.collect_attribute_types(threshold)
 		self.train(epochs)
 
 	def stop_words_extracted(self, path_to_stopwords):
@@ -75,6 +83,11 @@ class PercepClassifier(object):
 		self.my_td_weights_vanilla = {k: 0 for k in self.my_features}
 		self.pn_bias_vanilla = 0
 		self.td_bias_vanilla = 0
+		self.my_pn_weights_averaged = {k: 0 for k in self.my_features}
+		self.my_td_weights_averaged = {k: 0 for k in self.my_features}
+		self.pn_bias_averaged = 0
+		self.td_bias_averaged = 0
+		my_counter = 1
 		my_shuffled_keys = list(self.all_training_data.keys())
 		for e in range(epochs):
 			print("\r", "Epoch {} of {}".format(e+1, epochs), end="")
@@ -93,13 +106,28 @@ class PercepClassifier(object):
 				if (my_pn_activation * pn) <= 0:
 					for obs_keys in my_observations:
 						if self.my_pn_weights_vanilla.get(obs_keys) is not None:
-							self.my_pn_weights_vanilla[obs_keys] += my_observations[obs_keys] * pn
+							self.my_pn_weights_vanilla[obs_keys] += (my_observations[obs_keys] * pn)
+						if self.my_pn_weights_averaged.get(obs_keys) is not None:
+							self.my_pn_weights_averaged[obs_keys] += (my_observations[obs_keys] * pn * my_counter)
 					self.pn_bias_vanilla += pn
+					self.pn_bias_averaged += (pn * my_counter)
 				if (my_td_activation * td) <= 0:
 					for obs_keys in my_observations:
 						if self.my_td_weights_vanilla.get(obs_keys) is not None:
-							self.my_td_weights_vanilla[obs_keys] += my_observations[obs_keys] * td
+							self.my_td_weights_vanilla[obs_keys] += (my_observations[obs_keys] * td)
+						if self.my_td_weights_averaged.get(obs_keys) is not None:
+							self.my_td_weights_averaged[obs_keys] += (my_observations[obs_keys] * td * my_counter)
 					self.td_bias_vanilla += td
+					self.td_bias_averaged += (td * my_counter)
+
+				my_counter += 1
+
+		# Update the averaged weights to proper weights
+		for k in self.my_td_weights_averaged.keys():
+			self.my_td_weights_averaged[k] = self.my_td_weights_vanilla[k] - (self.my_td_weights_averaged[k] / my_counter)
+			self.my_pn_weights_averaged[k] = self.my_pn_weights_vanilla[k] - (self.my_pn_weights_averaged[k] / my_counter)
+		self.pn_bias_averaged = self.pn_bias_vanilla - (self.pn_bias_averaged / my_counter)
+		self.td_bias_averaged = self.td_bias_vanilla - (self.td_bias_averaged / my_counter)
 		print()
 		return
 
@@ -113,15 +141,26 @@ class PercepClassifier(object):
 		activation += b
 		return activation
 
-	def predict(self, observations):
-		return (self.activation_function(self.my_pn_weights_vanilla, observations, self.pn_bias_vanilla),
-						self.activation_function(self.my_td_weights_vanilla, observations, self.td_bias_vanilla))
+	def predict(self, observations, toggle=0):
+		if toggle == 1:
+			return (self.activation_function(self.my_pn_weights_vanilla, observations, self.pn_bias_vanilla),
+				self.activation_function(self.my_td_weights_vanilla, observations, self.td_bias_vanilla))
+		elif toggle == -1:
+			return (self.activation_function(self.my_pn_weights_averaged, observations, self.pn_bias_averaged),
+				self.activation_function(self.my_td_weights_averaged, observations, self.td_bias_averaged))
+
+		return (self.activation_function(self.my_pn_weights_loaded, observations, self.pn_bias_loaded),
+				self.activation_function(self.my_td_weights_loaded, observations, self.td_bias_loaded))
 
 	def my_evaluation(self, all_dev_data):
-		true_positives = 0
-		false_positives = 0
-		true_negatives = 0
-		false_negatives = 0
+		true_positives_vanilla = 0
+		false_positives_vanilla = 0
+		true_negatives_vanilla = 0
+		false_negatives_vanilla = 0
+		true_positives_averaged = 0
+		false_positives_averaged = 0
+		true_negatives_averaged = 0
+		false_negatives_averaged = 0
 
 		all_dev_keys = list(all_dev_data.keys())
 		random.shuffle(all_dev_keys)
@@ -135,34 +174,68 @@ class PercepClassifier(object):
 					my_observations[w] += 1
 				else:
 					my_observations[w] = 1
-			prediction_pn, prediction_td = self.predict(my_observations)
+			pred_pn_vanilla, pred_td_vanilla = self.predict(my_observations, toggle=1)
+			pred_pn_averaged, pred_td_averaged = self.predict(my_observations, toggle=-1)
 
-			if prediction_pn > 0 and correct_pn > 0:
-				true_positives += 1
-			elif prediction_pn > 0 and correct_pn < 0:
-				false_positives += 1
-			elif prediction_pn < 0 and correct_pn > 0:
-				false_negatives += 1
-			elif prediction_pn < 0 and correct_pn < 0:
-				true_negatives += 1
+			if pred_pn_vanilla > 0 and correct_pn > 0:
+				true_positives_vanilla += 1
+			elif pred_pn_vanilla > 0 and correct_pn < 0:
+				false_positives_vanilla += 1
+			elif pred_pn_vanilla < 0 and correct_pn > 0:
+				false_negatives_vanilla += 1
+			elif pred_pn_vanilla < 0 and correct_pn < 0:
+				true_negatives_vanilla += 1
 
-			if prediction_td > 0 and correct_td > 0:
-				true_positives += 1
-			elif prediction_td > 0 and correct_td < 0:
-				false_positives += 1
-			elif prediction_td < 0 and correct_td > 0:
-				false_negatives += 1
-			elif prediction_td < 0 and correct_td < 0:
-				true_negatives += 1
+			if pred_td_vanilla > 0 and correct_td > 0:
+				true_positives_vanilla += 1
+			elif pred_td_vanilla > 0 and correct_td < 0:
+				false_positives_vanilla += 1
+			elif pred_td_vanilla < 0 and correct_td > 0:
+				false_negatives_vanilla += 1
+			elif pred_td_vanilla < 0 and correct_td < 0:
+				true_negatives_vanilla += 1
 
-		accuracy = (true_positives + true_negatives) / (true_positives + true_negatives + false_negatives + false_positives)
-		precision = true_positives / (true_positives + false_positives)
-		recall = true_positives / (true_positives + false_negatives)
-		fscore = (precision * recall * 2) / (precision + recall)
+			if pred_pn_averaged > 0 and correct_pn > 0:
+				true_positives_averaged += 1
+			elif pred_pn_averaged > 0 and correct_pn < 0:
+				false_positives_averaged += 1
+			elif pred_pn_averaged < 0 and correct_pn > 0:
+				false_negatives_averaged += 1
+			elif pred_pn_averaged < 0 and correct_pn < 0:
+				true_negatives_averaged += 1
 
-		string_result = "Precision:{} Recall:{} F-Score:{} Accuracy:{}".format(precision, recall, fscore, accuracy)
+			if pred_td_averaged > 0 and correct_td > 0:
+				true_positives_averaged += 1
+			elif pred_td_averaged > 0 and correct_td < 0:
+				false_positives_averaged += 1
+			elif pred_td_averaged < 0 and correct_td > 0:
+				false_negatives_averaged += 1
+			elif pred_td_averaged < 0 and correct_td < 0:
+				true_negatives_averaged += 1
 
-		return string_result
+		accuracy_vanilla = (true_positives_vanilla + true_negatives_vanilla) / (
+			true_positives_vanilla + true_negatives_vanilla + false_negatives_vanilla + false_positives_vanilla)
+		precision_vanilla = true_positives_vanilla / (true_positives_vanilla + false_positives_vanilla)
+		recall_vanilla = true_positives_vanilla / (true_positives_vanilla + false_negatives_vanilla)
+		fscore_vanilla = (precision_vanilla * recall_vanilla * 2) / (precision_vanilla + recall_vanilla)
+
+		vanilla_string_result = "Vanilla - Precision:{} Recall:{} F-Score:{} Accuracy:{}".format(precision_vanilla,
+																								recall_vanilla,
+																								fscore_vanilla,
+																								accuracy_vanilla)
+
+		accuracy_averaged = (true_positives_averaged + true_negatives_averaged) / (
+			true_positives_averaged + true_negatives_averaged + false_negatives_averaged + false_positives_averaged)
+		precision_averaged = true_positives_averaged / (true_positives_averaged + false_positives_averaged)
+		recall_averaged = true_positives_averaged / (true_positives_averaged + false_negatives_averaged)
+		fscore_averaged = (precision_averaged * recall_averaged * 2) / (precision_averaged + recall_averaged)
+
+		average_string_result = "Average - Precision:{} Recall:{} F-Score:{} Accuracy:{}".format(precision_averaged,
+																						recall_averaged,
+																						fscore_averaged,
+																						accuracy_averaged)
+
+		return vanilla_string_result + "\n" + average_string_result
 
 	def homework_testing(self, input_text):
 		prediction_pn, prediction_td = self.predict(input_text)
@@ -171,13 +244,20 @@ class PercepClassifier(object):
 		result += "positive " if prediction_pn > 0 else "negative "
 		return result
 
-	def save(self, save_file_name):
-		save_file = open(save_file_name, 'w')
-		all_info = {"stop_words": self.stop_words, "my_pn_weights_vanilla": self.my_pn_weights_vanilla,
-					"pn_bias_vanilla": self.pn_bias_vanilla, "my_td_weights_vanilla": self.my_td_weights_vanilla,
-					"td_bias_vanilla": self.td_bias_vanilla}
-		save_file.write(json.dumps(all_info))
-		save_file.close()
+	def save(self, save_vanilla_name, save_averaged_name):
+		vanilla_save_file = open(save_vanilla_name, 'w')
+		all_vanilla_info = {"stop_words": self.stop_words, "my_pn_weights": self.my_pn_weights_vanilla,
+					"pn_bias": self.pn_bias_vanilla, "my_td_weights": self.my_td_weights_vanilla,
+					"td_bias": self.td_bias_vanilla}
+		vanilla_save_file.write(json.dumps(all_vanilla_info))
+		vanilla_save_file.close()
+
+		averaged_save_file = open(save_averaged_name, 'w')
+		all_averaged_info = {"stop_words": self.stop_words, "my_pn_weights": self.my_pn_weights_averaged,
+							"pn_bias": self.pn_bias_averaged, "my_td_weights": self.my_td_weights_averaged,
+							"td_bias": self.td_bias_averaged}
+		averaged_save_file.write(json.dumps(all_averaged_info))
+		averaged_save_file.close()
 		return True
 
 	def load_pretrained(self, model_file):
@@ -187,10 +267,10 @@ class PercepClassifier(object):
 		data = json.load(f)
 		f.close()
 		self.stop_words = data["stop_words"]
-		self.my_pn_weights_vanilla = data["my_pn_weights_vanilla"]
-		self.my_td_weights_vanilla = data["my_td_weights_vanilla"]
-		self.pn_bias_vanilla = data["pn_bias_vanilla"]
-		self.td_bias_vanilla = data["td_bias_vanilla"]
+		self.my_pn_weights_loaded = data["my_pn_weights_loaded"]
+		self.my_td_weights_loaded = data["my_td_weights_loaded"]
+		self.pn_bias_loaded = data["pn_bias_loaded"]
+		self.td_bias_loaded = data["td_bias_loaded"]
 		return True
 
 
