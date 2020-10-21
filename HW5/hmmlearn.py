@@ -1,8 +1,4 @@
 import argparse
-import os
-import string
-import glob
-import random
 import json
 
 
@@ -16,6 +12,17 @@ def check_arguments():
 	parser.add_argument("homework_toggle", metavar="homework-toggle", help="0 for submission | 1 for local testing",
 						nargs='*', default=0, type=int)
 	return parser.parse_args()
+
+
+class HMM(object):
+
+	def __init__(self):
+		self.all_training_data = None
+		self.states = set()
+		self.observations = set()
+
+	def load_new(self, all_training_data):
+		self.all_training_data = all_training_data
 
 
 if __name__ == "__main__":
