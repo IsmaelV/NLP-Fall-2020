@@ -55,7 +55,7 @@ class HMM(object):
 		"""
 		f = open(d, encoding="utf8")
 
-		# Read each sentence and store counts
+		# Read each sentence and store counts. Last line is adding END state
 		for sent in f:
 			prev_state = "START"
 			for w in sent.split():
@@ -74,6 +74,7 @@ class HMM(object):
 				if tag not in self.emission_prob:
 					self.emission_prob[tag] = dict()
 				self.emission_prob[tag][word] = self.emission_prob[tag].get(word, 0) + 1
+			self.state_transition_prob[prev_state]["END"] = self.state_transition_prob[prev_state].get("END", 0) + 1
 
 		# Add-One Smoothing for state transitions
 		for s1 in self.states:
@@ -107,6 +108,70 @@ class HMM(object):
 		my_save_file.close()
 		return True
 
+	def viterbi_dev(self, line):
+		key = []
+		all_prev_states = ["START"]
+		node_table = {(0, "START"): 1}
+		lookback_table = {(0, "START"): (None, None)}
+		step = 1
+		for w in line.split():
+			word, tag = w.rsplit("/", 1)
+
+			# Emission Probability
+			emission_nodes = dict()
+			for t in self.emission_prob.keys():
+				tmp_emission = self.emission_prob[t].get(word, -1)
+				if tmp_emission > 0:
+					emission_nodes[t] = tmp_emission
+
+			# -------------------------------------------------------------
+			# Go through each emission node (vertical nodes) and calculate
+			# the max value at that node and its parent node
+			# -------------------------------------------------------------
+			for e in emission_nodes.keys():
+				parent_node = ""
+				curr_max = -1
+				for s in all_prev_states:
+					prev_state_node = node_table[(step - 1, s)]
+					tmp_result = prev_state_node * self.state_transition_prob[s][e] * emission_nodes[e]
+					if tmp_result > curr_max:
+						parent_node = s
+						curr_max = tmp_result
+				node_table[(step, e)] = curr_max
+				lookback_table[(step, e)] = (step-1, parent_node)
+
+			step += 1
+			key.append(tag)
+			all_prev_states = list(emission_nodes.keys())
+		prediction = []
+		max_end_state_val = -1
+		max_end_state = ""
+		for p in all_prev_states:
+			tmp_val = node_table[(step-1, p)]
+			if tmp_val > max_end_state_val:
+				max_end_state_val = tmp_val
+				max_end_state = p
+		prediction.append(max_end_state)
+		prev_step, parent = lookback_table[(step-1, max_end_state)]
+		while parent:
+			prediction.append(parent)
+			prev_step, parent = lookback_table[(prev_step, parent)]
+			if parent == "START":
+				break
+		prediction.reverse()
+		return prediction, key
+
+	def dev(self, dev_file):
+		f = open(dev_file, encoding="utf8")
+
+		# Read each sentence and perform Viterbi Algorithm
+		for sent in f:
+			prediction, key = self.viterbi_dev(sent)
+
 
 if __name__ == "__main__":
 	arguments = check_arguments()
+	my_hmm = HMM()
+	my_hmm.load_pretrained("hmmmodel.txt")
+	my_hmm.dev(arguments.path_to_input)
+	print()
