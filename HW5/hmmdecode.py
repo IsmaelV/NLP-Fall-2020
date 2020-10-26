@@ -74,6 +74,8 @@ class HMM(object):
 				if tag not in self.emission_prob:
 					self.emission_prob[tag] = dict()
 				self.emission_prob[tag][word] = self.emission_prob[tag].get(word, 0) + 1
+			if prev_state not in self.state_transition_prob:
+				self.state_transition_prob[prev_state] = dict()
 			self.state_transition_prob[prev_state]["END"] = self.state_transition_prob[prev_state].get("END", 0) + 1
 
 		# Add-One Smoothing for state transitions
@@ -138,28 +140,34 @@ class HMM(object):
 						parent_node = s
 						curr_max = tmp_result
 				node_table[(step, e)] = curr_max
-				lookback_table[(step, e)] = (step-1, parent_node)
+				lookback_table[(step, e)] = (step - 1, parent_node)
 
 			step += 1
 			key.append(tag)
 			all_prev_states = list(emission_nodes.keys())
-		prediction = []
-		max_end_state_val = -1
-		max_end_state = ""
-		for p in all_prev_states:
-			tmp_val = node_table[(step-1, p)]
-			if tmp_val > max_end_state_val:
-				max_end_state_val = tmp_val
-				max_end_state = p
-		prediction.append(max_end_state)
-		prev_step, parent = lookback_table[(step-1, max_end_state)]
+
+		# Perform calculations on END state. Same procedure as above in "for s in all_prev_state" loop, but for END state
+		curr_max = -1
+		parent_node = ""
+		for s in all_prev_states:
+			prev_state_node = node_table[(step - 1, s)]
+			tmp_result = prev_state_node * self.state_transition_prob[s]["END"]
+			if tmp_result > curr_max:
+				parent_node = s
+				curr_max = tmp_result
+		node_table[(step, "END")] = curr_max
+		lookback_table[(step, "END")] = (step - 1, parent_node)
+
+		# Look back at parents and create POS prediction
+		prediction = ["END"]
+		prev_step, parent = lookback_table[(step, "END")]
 		while parent:
 			prediction.append(parent)
 			prev_step, parent = lookback_table[(prev_step, parent)]
 			if parent == "START":
 				break
 		prediction.reverse()
-		return prediction, key
+		return prediction[:-1], key
 
 	def dev(self, dev_file):
 		f = open(dev_file, encoding="utf8")
