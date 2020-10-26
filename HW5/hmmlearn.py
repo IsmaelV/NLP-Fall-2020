@@ -121,12 +121,28 @@ class HMM(object):
 		for w in line.split():
 			word, tag = w.rsplit("/", 1)
 
+			# ----------------------------
 			# Emission Probability
+			# ----------------------------
 			emission_nodes = dict()
-			for t in self.emission_prob.keys():
-				tmp_emission = self.emission_prob[t].get(word, -1)
-				if tmp_emission > 0:
-					emission_nodes[t] = tmp_emission
+
+			# Seen word
+			if word in self.observations:
+				for t in self.emission_prob.keys():
+					tmp_emission = self.emission_prob[t].get(word, -1)
+					if tmp_emission > 0:
+						emission_nodes[t] = tmp_emission
+
+			# Unseen word - Get top two transitions for each previous state and set emission probability equal
+			else:
+				top_possible_transitions = set()
+				for p in all_prev_states:
+					tmp_states = self.state_transition_prob[p]
+					tmp_states = sorted(tmp_states.items(), key=lambda x: x[1], reverse=True)
+					for i in range(2):
+						top_possible_transitions.add(tmp_states[i][0])
+				for t in top_possible_transitions:
+					emission_nodes[t] = 0.000001
 
 			# -------------------------------------------------------------
 			# Go through each emission node (vertical nodes) and calculate
