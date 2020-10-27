@@ -83,6 +83,7 @@ class HMM(object):
 			for s2 in self.states:
 				self.state_transition_prob[s1][s2] = self.state_transition_prob[s1].get(s2, 0) + 1
 			self.state_transition_prob["START"][s1] = self.state_transition_prob["START"].get(s1, 0) + 1
+			self.state_transition_prob[s1]["END"] = self.state_transition_prob[s1].get("END", 0) + 1
 		# Convert counts into probabilities
 		for k in self.state_transition_prob.keys():
 			my_dict = self.state_transition_prob[k]
@@ -110,14 +111,18 @@ class HMM(object):
 		my_save_file.close()
 		return True
 
-	def viterbi_dev(self, line):
+	def viterbi(self, line, dev=False):
 		key = []
 		all_prev_states = ["START"]
 		node_table = {(0, "START"): 1}
 		lookback_table = {(0, "START"): (None, None)}
 		step = 1
 		for w in line.split():
-			word, tag = w.rsplit("/", 1)
+			if dev:
+				word, tag = w.rsplit("/", 1)
+				key.append(tag)
+			else:
+				word = w
 
 			# ----------------------------
 			# Emission Probability
@@ -139,6 +144,8 @@ class HMM(object):
 					tmp_states = sorted(tmp_states.items(), key=lambda x: x[1], reverse=True)
 					for i in range(2):
 						top_possible_transitions.add(tmp_states[i][0])
+				if "END" in top_possible_transitions:
+					top_possible_transitions.remove("END")
 				for t in top_possible_transitions:
 					emission_nodes[t] = 0.000001
 
@@ -159,7 +166,6 @@ class HMM(object):
 				lookback_table[(step, e)] = (step - 1, parent_node)
 
 			step += 1
-			key.append(tag)
 			all_prev_states = list(emission_nodes.keys())
 
 		# Perform calculations on END state. Same procedure as above in "for s in all_prev_state" loop, but for END state
@@ -175,7 +181,7 @@ class HMM(object):
 		lookback_table[(step, "END")] = (step - 1, parent_node)
 
 		# Look back at parents and create POS prediction
-		prediction = ["END"]
+		prediction = []
 		prev_step, parent = lookback_table[(step, "END")]
 		while parent:
 			prediction.append(parent)
@@ -183,19 +189,39 @@ class HMM(object):
 			if parent == "START":
 				break
 		prediction.reverse()
-		return prediction[:-1], key
+		return (prediction, key) if dev else prediction
 
 	def dev(self, dev_file):
 		f = open(dev_file, encoding="utf8")
 
+		total = 0
+		total_correct = 0
 		# Read each sentence and perform Viterbi Algorithm
 		for sent in f:
-			prediction, key = self.viterbi_dev(sent)
+			prediction, key = self.viterbi(sent, dev=True)
+			for j in range(len(prediction)):
+				if prediction[j] == key[j]:
+					total_correct += 1
+				total += 1
+		print("Total Correct:", total_correct/total)
+		return
 
 
 if __name__ == "__main__":
 	arguments = check_arguments()
 	my_hmm = HMM()
 	my_hmm.load_pretrained("hmmmodel.txt")
-	my_hmm.dev(arguments.path_to_input)
-	print()
+
+	output_file = open("hmmoutput.txt", 'w', encoding="utf8")
+	input_file = open(arguments.path_to_input, encoding='utf8')
+	for input_line in input_file:
+		line_words = input_line.split()
+		POS_prediction = my_hmm.viterbi(input_line)
+		resulting_line = ""
+		for i in range(len(line_words)):
+			resulting_line += line_words[i] + "/" + POS_prediction[i] + " "
+		resulting_line = resulting_line.strip() + "\n"
+		output_file.write(resulting_line)
+
+	input_file.close()
+	output_file.close()
